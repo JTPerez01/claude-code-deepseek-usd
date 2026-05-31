@@ -30,7 +30,7 @@
   ],
   "scripts": {
     "postinstall": "node install.js",
-    "preuninstall": "node --input-type=commonjs -e \"try{require('./uninstall.js')}catch(e){console.error(e.message)}\""
+    "preuninstall": "node uninstall.js"
   },
   "engines": {
     "node": ">=18"

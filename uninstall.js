@@ -1,60 +1,50 @@
 #!/usr/bin/env node
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const HOME = os.homedir();
 
-console.log('\n🧹 卸载 DeepSeek Monitor...\n');
+console.log('\n🧹 卸载 claude-code-deepseek-monitor...\n');
 
-function rm(p) {
-  try { fs.rmSync(p, { recursive: true, force: true }); return true; } catch { return false; }
-}
+// ---- 1. 杀 HUD 进程 ----
+const pidFile = path.join(HOME, '.claude', 'deepseek-cache', 'hud.pid');
+try {
+  if (fs.existsSync(pidFile)) {
+    const pid = fs.readFileSync(pidFile, 'utf-8').trim();
+    if (process.platform === 'win32') {
+      execSync(`taskkill /PID ${pid} /F 2>nul`, { stdio: 'ignore' });
+    } else {
+      try { process.kill(+pid); } catch {}
+    }
+    fs.unlinkSync(pidFile);
+    console.log('  ✅ HUD 进程已停止');
+  }
+} catch { console.log('  ⚠️ 无法停止 HUD（请手动关闭 Claude Code）'); }
 
-let ok = 0, fail = 0;
-function step(label, fn) {
-  try { fn(); console.log(`  ✅ ${label}`); ok++; } catch(e) { console.log(`  ⚠️ ${label}: ${e.message}`); fail++; }
-}
-
-// 清理 settings.json 中的 statusLine 和 hooks
-step('清理 settings.json', () => {
-  const sp = path.join(HOME, '.claude', 'settings.json');
+// ---- 2. 清理 settings.json ----
+const sp = path.join(HOME, '.claude', 'settings.json');
+try {
   if (fs.existsSync(sp)) {
     const s = JSON.parse(fs.readFileSync(sp, 'utf-8'));
     delete s.statusLine;
     if (s.hooks) { delete s.hooks.SessionStart; delete s.hooks.SessionEnd; }
     fs.writeFileSync(sp, JSON.stringify(s, null, 2));
+    console.log('  ✅ settings.json 已清理');
   }
-});
+} catch(e) { console.log('  ⚠️ settings.json:', e.message); }
 
-// 杀 HUD + daemon
-step('停止 HUD 进程', () => {
-  try {
-    const pidFile = path.join(HOME, '.claude', 'deepseek-cache', 'hud.pid');
-    if (fs.existsSync(pidFile)) {
-      const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim());
-      try { process.kill(pid); } catch {}
-      fs.unlinkSync(pidFile);
-    }
-  } catch {}
-  try {
-    if (process.platform === 'win32') {
-      require('child_process').execSync('taskkill /f /fi "IMAGENAME eq node.exe" 2>nul', { stdio: 'ignore' });
-    } else {
-      require('child_process').execSync('pkill -f "run.mjs" 2>/dev/null || true', { stdio: 'ignore' });
-    }
-  } catch {}
-});
-
-// 删除所有安装的文件
+// ---- 3. 删除文件 ----
 const dirs = [
-  path.join(HOME, '.claude', 'plugins', 'cache', 'deepseek-monitor'),
-  path.join(HOME, '.claude', 'plugins', 'custom', 'deepseek-monitor'),
-  path.join(HOME, '.claude', 'plugins', 'claude-hud'),
-  path.join(HOME, '.claude', 'skills', 'usage'),
-  path.join(HOME, '.claude', 'deepseek-cache'),
+  ['cache/deepseek-monitor',        path.join(HOME, '.claude', 'plugins', 'cache', 'deepseek-monitor')],
+  ['custom/deepseek-monitor',       path.join(HOME, '.claude', 'plugins', 'custom', 'deepseek-monitor')],
+  ['claude-hud',                    path.join(HOME, '.claude', 'plugins', 'claude-hud')],
+  ['skills/usage',                  path.join(HOME, '.claude', 'skills', 'usage')],
+  ['deepseek-cache',                path.join(HOME, '.claude', 'deepseek-cache')],
 ];
-for (const d of dirs) {
-  step(`删除 ${d.replace(HOME, '~')}`, () => rm(d));
+for (const [name, p] of dirs) {
+  try { fs.rmSync(p, { recursive: true, force: true }); console.log(`  ✅ ${name}`); }
+  catch(e) { console.log(`  ⚠️ ${name}: ${e.message}`); }
 }
 
-console.log(`\n  ✨ 卸载完成 (${ok} 成功, ${fail} 跳过)\n`);
+console.log('\n  ✨ 完成\n');
