@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { dim, label, green, yellow, red } from '../colors.js';
+import { dim, label, yellow, red, RESET } from '../colors.js';
 import { t } from '../../i18n/index.js';
 const DS_INPUT_PRICE = 3;
 const DS_CACHE_PRICE = 0.025;
@@ -91,41 +91,34 @@ export function renderDeepSeekLine(ctx) {
                 : yellow(cumStr); // 无增量
         parts.push(`${label(t('label.cost'))} ${costStr}`);
     }
+    function rainbow(n) {
+        // 彩虹色阶: red → orange → yellow → green → cyan → blue
+        if (n <= 0.5)
+            return '\x1b[38;5;196m'; // 红
+        if (n <= 1)
+            return '\x1b[38;5;202m'; // 橙红
+        if (n <= 3)
+            return '\x1b[38;5;208m'; // 橙
+        if (n <= 5)
+            return '\x1b[38;5;214m'; // 黄橙
+        if (n <= 8)
+            return '\x1b[38;5;220m'; // 黄
+        if (n <= 12)
+            return '\x1b[38;5;190m'; // 黄绿
+        if (n <= 20)
+            return '\x1b[38;5;82m'; // 绿
+        if (n <= 50)
+            return '\x1b[38;5;51m'; // 青
+        return '\x1b[38;5;33m'; // 蓝
+    }
     const bal = readBalance();
     if (bal) {
+        const color = rainbow(bal.value);
         if (!bal.online) {
-            // 离线：显示最后已知余额 + 警告
-            let iconWarn, colorFnWarn;
-            if (bal.value < 1) {
-                iconWarn = '🔴';
-                colorFnWarn = red;
-            }
-            else if (bal.value < 5) {
-                iconWarn = '🟡';
-                colorFnWarn = yellow;
-            }
-            else {
-                iconWarn = '';
-                colorFnWarn = green;
-            }
-            parts.push(`${label(t('label.balance'))} ${iconWarn}${colorFnWarn(`¥${bal.str}`)} ${red('⚠')}`);
+            parts.push(`${label(t('label.balance'))} ${color}¥${bal.str}${RESET} ${red('⚠')}`);
         }
         else {
-            let icon, colorFn;
-            if (bal.value < 1) {
-                icon = '🔴';
-                colorFn = red;
-            }
-            else if (bal.value < 5) {
-                icon = '🟡';
-                colorFn = yellow;
-            }
-            else {
-                icon = '';
-                colorFn = green;
-            }
-            const iconStr = icon ? `${icon} ` : '';
-            parts.push(`${label(t('label.balance'))} ${iconStr}${colorFn(`¥${bal.str}`)}`);
+            parts.push(`${label(t('label.balance'))} ${color}¥${bal.str}${RESET}`);
         }
     }
     if (parts.length === 0)
