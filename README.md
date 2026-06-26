@@ -1,13 +1,13 @@
-# Claude Code DeepSeek Monitor
+# Claude Code DeepSeek USD
 
-Real-time DeepSeek API usage monitor for Claude Code — displays session cost and account balance in the status bar. **USD pricing, English interface.**
+Real-time DeepSeek cost display for Claude Code's status bar — session cost + account balance, all in **USD**. Built for Americans who want to know what they're actually paying.
 
 Forked from [love72-seven/Claude-Code-DeepSeek-Monitor](https://github.com/love72-seven/Claude-Code-DeepSeek-Monitor) with these changes:
 
-- **USD throughout** — currency symbol detected from DeepSeek balance API
+- **USD throughout** — currency detected from DeepSeek balance API
 - **English UI** — all text translated from Chinese
-- **DeepSeek V4 pricing** — recognizes V4 Pro, V4 Flash, V3, and R2 models
-- **Trimmed status bar** — model, context, project, DeepSeek cost + balance only
+- **DeepSeek V4 pricing** — recognizes V4 Pro, V4 Flash, V3, and R2
+- **Clean status bar** — model, context, project, cost + balance only
 - **API key** — reads from `ANTHROPIC_AUTH_TOKEN` env var or `settings.json`
 
 ## Status Bar
@@ -18,63 +18,35 @@ Forked from [love72-seven/Claude-Code-DeepSeek-Monitor](https://github.com/love7
 
 | Segment | Meaning |
 |---|---|
-| `[deepseek-v4-pro[1m]]` | Model + context window size |
-| `██░░░ 20% (196k/1M)` | Context fill + tokens used / max |
+| `[deepseek-v4-pro[1m]]` | Model + context window |
+| `██░░░ 20% (196k/1M)` | Context fill + tokens |
 | `wsl` | Project name |
-| `$0.092` | Session DeepSeek cost (real, not Anthropic estimate) |
+| `$0.092` | Session DeepSeek cost (real) |
 | `Balance $3.14` | Account balance from DeepSeek API |
-
-## Commands
-
-| Command | Description |
-|---|---|
-| `/usage` | Full color dashboard with token/cost breakdown |
-| `/usage --short` | Single-line compact view |
-| `/usage --refresh` | Force refresh balance |
 
 ## Install
 
 ```bash
-git clone https://github.com/JTPerez01/Claude-Code-DeepSeek-Monitor.git
-cd Claude-Code-DeepSeek-Monitor
+git clone https://github.com/JTPerez01/claude-code-deepseek-usd.git
+cd claude-code-deepseek-usd
 node install.js
 ```
 
 Restart Claude Code.
 
-## Pricing
+## Commands
 
-Built-in DeepSeek V4 Pro pricing (USD, overridable via env):
-
-| Token Type | Price per 1M |
+| Command | Description |
 |---|---|
-| Input (cache miss) | $0.435 |
-| Input (cache hit) | $0.003625 |
-| Output | $0.87 |
-
-```bash
-export DEEPSEEK_INPUT_PRICE=0.435
-export DEEPSEEK_OUTPUT_PRICE=0.87
-export DEEPSEEK_CACHE_HIT_PRICE=0.003625
-```
+| `/usage` | Full color dashboard |
+| `/usage --short` | Compact one-liner |
+| `/usage --refresh` | Force balance refresh |
 
 ## Uninstall
 
 ```bash
 node uninstall.js
 ```
-
-Or manually:
-
-```bash
-rm -rf ~/.claude/plugins/cache/deepseek-monitor
-rm -rf ~/.claude/plugins/custom/deepseek-monitor
-rm -rf ~/.claude/plugins/claude-hud
-rm -rf ~/.claude/skills/usage
-rm -rf ~/.claude/deepseek-cache
-```
-
-Then remove `statusLine` from `~/.claude/settings.json`.
 
 ## License
 
