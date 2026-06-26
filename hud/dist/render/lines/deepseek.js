@@ -165,14 +165,7 @@ export function renderDeepSeekLine(ctx) {
     if (bal) {
         const color = rainbow(bal.value);
         const warn = bal.fresh ? '' : ` ${red('⚠')}`;
-        // 显示缓存年龄
-        let age = '';
-        try {
-            const s = fs.statSync(BALANCE_CACHE);
-            age = ` ${dim(Math.round((Date.now() - s.mtimeMs) / 1000) + 's')}`;
-        }
-        catch { }
-        parts.push(`${label(t('label.balance'))} ${color}${currencySymbol}${bal.str}${RESET}${warn}${age}`);
+        parts.push(`${label(t('label.balance'))} ${color}${currencySymbol}${bal.str}${RESET}${warn}`);
     }
     if (parts.length === 0)
         return null;
