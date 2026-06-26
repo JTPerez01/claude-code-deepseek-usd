@@ -35,18 +35,12 @@ Forked from [love72-seven/Claude-Code-DeepSeek-Monitor](https://github.com/love7
 ## Install
 
 ```bash
-npm install -g claude-code-deepseek-monitor
-```
-
-Or from this fork:
-
-```bash
 git clone https://github.com/JTPerez01/Claude-Code-DeepSeek-Monitor.git
 cd Claude-Code-DeepSeek-Monitor
 node install.js
 ```
 
-Restart Claude Code after installation.
+Restart Claude Code.
 
 ## Pricing
 
@@ -67,8 +61,20 @@ export DEEPSEEK_CACHE_HIT_PRICE=0.003625
 ## Uninstall
 
 ```bash
-npm uninstall -g claude-code-deepseek-monitor
+node uninstall.js
 ```
+
+Or manually:
+
+```bash
+rm -rf ~/.claude/plugins/cache/deepseek-monitor
+rm -rf ~/.claude/plugins/custom/deepseek-monitor
+rm -rf ~/.claude/plugins/claude-hud
+rm -rf ~/.claude/skills/usage
+rm -rf ~/.claude/deepseek-cache
+```
+
+Then remove `statusLine` from `~/.claude/settings.json`.
 
 ## License
 
