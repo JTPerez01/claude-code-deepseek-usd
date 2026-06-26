@@ -67,9 +67,9 @@ try {
   log('⚙️', 'configure HUD...');
   fs.mkdirSync(PLUGIN_DIR, { recursive: true });
   fs.writeFileSync(path.join(PLUGIN_DIR, 'config.json'), JSON.stringify({
-    language:'zh', lineLayout:'compact',
+    language:'en', lineLayout:'compact',
     elementOrder:['project','context','deepseek','tools','agents','todos'],
-    display:{showModel:true,showProject:true,showContextBar:true,showDeepSeek:true,showCost:false,showUsage:false,showTools:true,showAgents:true,showTodos:true,showDuration:true,showSessionName:false,contextValue:'both'},
+    display:{showModel:true,showProject:true,showContextBar:true,showDeepSeek:true,showCost:true,showUsage:true,showTools:true,showAgents:true,showTodos:true,showDuration:true,showSessionName:false,contextValue:'both'},
   },null,2));
 
   // 6. statusLine

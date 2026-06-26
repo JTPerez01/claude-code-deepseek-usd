@@ -16,6 +16,12 @@ const ANTHROPIC_MODEL_PRICING = [
     { pattern: /\bopusplan\b/i, pricing: { inputUsdPerMillion: 15, outputUsdPerMillion: 75 } },
     { pattern: /\bsonnetplan\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
     { pattern: /\bhaikuplan\b/i, pricing: { inputUsdPerMillion: 0.8, outputUsdPerMillion: 4 } },
+    // DeepSeek models
+    { pattern: /\bdeepseek-v4-pro\b/i, pricing: { inputUsdPerMillion: 0.435, outputUsdPerMillion: 0.87 } },
+    { pattern: /\bdeepseek-v4-flash\b/i, pricing: { inputUsdPerMillion: 0.14, outputUsdPerMillion: 0.28 } },
+    { pattern: /\bdeepseek-v3/i, pricing: { inputUsdPerMillion: 0.27, outputUsdPerMillion: 1.10 } },
+    { pattern: /\bdeepseek-r2\b/i, pricing: { inputUsdPerMillion: 0.55, outputUsdPerMillion: 2.19 } },
+    { pattern: /\bdeepseek/i, pricing: { inputUsdPerMillion: 0.435, outputUsdPerMillion: 0.87 } },
 ];
 function normalizeModelName(modelName) {
     return modelName

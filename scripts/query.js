@@ -10,10 +10,10 @@ const BALANCE_CACHE = path.join(TMP, 'deepseek-balance-cache.txt');
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
 const SETTINGS = path.join(CLAUDE_DIR, 'settings.json');
 
-// ── 定价 ──
-const INPUT_PRICE = +process.env.DEEPSEEK_INPUT_PRICE || 3;
-const OUTPUT_PRICE = +process.env.DEEPSEEK_OUTPUT_PRICE || 6;
-const CACHE_PRICE = +process.env.DEEPSEEK_CACHE_HIT_PRICE || 0.025;
+// ── Pricing (USD per 1M tokens — override via env vars) ──
+const INPUT_PRICE = +process.env.DEEPSEEK_INPUT_PRICE || 0.435;
+const OUTPUT_PRICE = +process.env.DEEPSEEK_OUTPUT_PRICE || 0.87;
+const CACHE_PRICE = +process.env.DEEPSEEK_CACHE_HIT_PRICE || 0.003625;
 
 // ── 颜色 ──
 const C = {
@@ -22,9 +22,10 @@ const C = {
   blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m',
   bblack: '\x1b[90m', byellow: '\x1b[93m', bcyan: '\x1b[96m',
 };
+let currencySymbol = '$'; // detected from balance API
 const fmt = {
   num: (n) => Number(n).toLocaleString('en'),
-  money: (n) => `¥${Number(n).toFixed(4)}`,
+  money: (n) => `${currencySymbol}${Number(n).toFixed(4)}`,
   pct: (n) => `${n.toFixed(1)}%`,
 };
 
@@ -34,12 +35,12 @@ const mode = args.includes('--short') || args.includes('-s') ? 'short' : 'full';
 const refresh = args.includes('--refresh') || args.includes('-r');
 const sessionId = args.find(a => !a.startsWith('-')) || '';
 
-// ── 1. 读 API key ──
+// ── 1. Read API key ──
 function getApiKey() {
   try {
     const s = JSON.parse(fs.readFileSync(SETTINGS, 'utf-8'));
-    return s?.env?.ANTHROPIC_AUTH_TOKEN || '';
-  } catch { return ''; }
+    return s?.env?.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_AUTH_TOKEN || '';
+  } catch { return process.env.ANTHROPIC_AUTH_TOKEN || ''; }
 }
 
 // ── 2. 余额 ──
@@ -53,6 +54,7 @@ function fetchBalance() {
     );
     const d = JSON.parse(body);
     const b = (d.balance_infos || [{}])[0];
+    if (b.currency) currencySymbol = b.currency === 'USD' ? '$' : b.currency === 'CNY' ? '¥' : b.currency;
     return {
       total: parseFloat(b.total_balance) || 0,
       topped: parseFloat(b.topped_up_balance) || 0,
@@ -65,7 +67,7 @@ function fetchBalance() {
 if (refresh) {
   const bal = fetchBalance();
   fs.writeFileSync(BALANCE_CACHE, bal.total.toFixed(2));
-  console.log('✅ 余额已刷新');
+  console.log('✅ Balance refreshed');
   if (mode === 'short') process.exit(0);
 }
 
@@ -140,16 +142,16 @@ if (session) stats = parseSession(session.path);
 
 const cachePct = stats.totalIn > 0 ? (stats.maxCache / stats.totalIn) * 100 : 0;
 
-// ── 4. 简版输出 ──
+// ── 4. Short output ──
 if (mode === 'short') {
   let icon = '';
   if (balData.total < 1) icon = '🔴';
   else if (balData.total < 5) icon = '🟡';
-  console.log(`${C.green}${icon}¥${balData.total.toFixed(2)}${C.reset}  ${C.cyan}📥${fmt.num(stats.totalIn)}${C.reset}  ${C.magenta}📤${fmt.num(stats.totalOut)}${C.reset}  ${C.yellow}💵${fmt.money(stats.totalCost)}${C.reset}  ${C.dim}缓存${fmt.pct(cachePct)}${C.reset}  ${C.bblack}${fmt.num(stats.calls)}次${C.reset}`);
+  console.log(`${C.green}${icon}${currencySymbol}${balData.total.toFixed(2)}${C.reset}  ${C.cyan}📥${fmt.num(stats.totalIn)}${C.reset}  ${C.magenta}📤${fmt.num(stats.totalOut)}${C.reset}  ${C.yellow}💵${fmt.money(stats.totalCost)}${C.reset}  ${C.dim}cache ${fmt.pct(cachePct)}${C.reset}  ${C.bblack}${fmt.num(stats.calls)}calls${C.reset}`);
   process.exit(0);
 }
 
-// ── 5. 彩色仪表盘 ──
+// ── 5. Dashboard ──
 function bar(pct, w = 20, dir = 'more') {
   let color;
   if (dir === 'more') {
@@ -176,23 +178,23 @@ const balDot = balData.available ? `${C.green}●${C.reset}` : `${C.red}●${C.r
 console.log(`\n  ${C.bcyan}${C.bold}╔${HR}╗${C.reset}`);
 console.log(`  ${C.bcyan}${C.bold}║${C.reset}  ${C.bold}${C.cyan}🔍 DeepSeek Monitor${C.reset}                              ${C.bcyan}${C.bold}║${C.reset}`);
 console.log(`  ${C.bcyan}${C.bold}╠${HR}╣${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}💰 余额${C.reset}  ${balDot} ${C.bold}${C.green}¥${balData.total.toFixed(2)}${C.reset}                               ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}💰 Balance${C.reset}  ${balDot} ${C.bold}${C.green}${currencySymbol}${balData.total.toFixed(2)}${C.reset}                               ${C.bcyan}║${C.reset}`);
 if (balData.topped > 0 || balData.granted > 0)
-  console.log(`  ${C.bcyan}║${C.reset}        ${C.dim}充值: ¥${balData.topped}  赠金: ¥${balData.granted}${C.reset}                    ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}💵 本次${C.reset}  ${C.byellow}${fmt.money(stats.totalCost)}${C.reset}                                    ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}🟢 剩余${C.reset}  ${C.green}¥${remain.toFixed(2)}${C.reset}  ${bar(remainPct, 12, 'more')} ${C.dim}${remainPct}%${C.reset}          ${C.bcyan}║${C.reset}`);
+  console.log(`  ${C.bcyan}║${C.reset}        ${C.dim}topped: ${currencySymbol}${balData.topped}  granted: ${currencySymbol}${balData.granted}${C.reset}                    ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}💵 Session${C.reset}  ${C.byellow}${fmt.money(stats.totalCost)}${C.reset}                                    ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}🟢 Remain${C.reset}  ${C.green}${currencySymbol}${remain.toFixed(2)}${C.reset}  ${bar(remainPct, 12, 'more')} ${C.dim}${remainPct}%${C.reset}          ${C.bcyan}║${C.reset}`);
 console.log(`  ${C.bcyan}${C.bold}╠${HR2}╣${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}📊 Token 用量${C.reset}                                    ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.cyan}上下文${C.reset}  ${C.bold}${fmt.num(stats.ctxTok)}${C.reset} tokens  ${C.dim}API:${C.reset} ${C.magenta}${fmt.num(stats.calls)}${C.reset} 次         ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.blue}📥${C.reset} ${bar(inPct, 14, 'less')} ${C.dim}输入${C.reset} ${C.bold}${fmt.num(stats.totalIn)}${C.reset}              ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.green}📤${C.reset} ${bar(outPct, 14, 'less')} ${C.dim}输出${C.reset} ${C.bold}${fmt.num(stats.totalOut)}${C.reset}              ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}缓存命中${C.reset} ${cacheColor}${fmt.pct(cachePct)}${C.reset}  ${fmt.num(stats.maxCache)} tokens                ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}📊 Token Usage${C.reset}                                    ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.cyan}Context${C.reset}  ${C.bold}${fmt.num(stats.ctxTok)}${C.reset} tokens  ${C.dim}API:${C.reset} ${C.magenta}${fmt.num(stats.calls)}${C.reset} calls        ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.blue}📥${C.reset} ${bar(inPct, 14, 'less')} ${C.dim}Input${C.reset} ${C.bold}${fmt.num(stats.totalIn)}${C.reset}              ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.green}📤${C.reset} ${bar(outPct, 14, 'less')} ${C.dim}Output${C.reset} ${C.bold}${fmt.num(stats.totalOut)}${C.reset}              ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}Cache hit${C.reset} ${cacheColor}${fmt.pct(cachePct)}${C.reset}  ${fmt.num(stats.maxCache)} tokens                ${C.bcyan}║${C.reset}`);
 console.log(`  ${C.bcyan}${C.bold}╠${HR2}╣${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}💲 费用明细${C.reset}                                      ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}未命中:${C.reset} ¥${INPUT_PRICE}  /M → ${C.yellow}${fmt.money(inCostUncached)}${C.reset}                  ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}  ${C.bold}💲 Cost Detail${C.reset}                                      ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}miss:${C.reset} ${currencySymbol}${INPUT_PRICE}  /M → ${C.yellow}${fmt.money(inCostUncached)}${C.reset}                  ${C.bcyan}║${C.reset}`);
 if (stats.maxCache > 0)
-  console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}命中:${C.reset}   ¥${CACHE_PRICE}/M → ${C.green}${fmt.money(inCostCached)}${C.reset}                  ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}输出:${C.reset}   ¥${OUTPUT_PRICE}  /M → ${C.magenta}${fmt.money(stats.outCost)}${C.reset}                  ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.bold}合计:${C.reset}           ${C.byellow}${fmt.money(stats.totalCost)}${C.reset}                  ${C.bcyan}║${C.reset}`);
+  console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}hit:${C.reset}   ${currencySymbol}${CACHE_PRICE}/M → ${C.green}${fmt.money(inCostCached)}${C.reset}                  ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}output:${C.reset} ${currencySymbol}${OUTPUT_PRICE}  /M → ${C.magenta}${fmt.money(stats.outCost)}${C.reset}                  ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.bold}Total:${C.reset}           ${C.byellow}${fmt.money(stats.totalCost)}${C.reset}                  ${C.bcyan}║${C.reset}`);
 console.log(`  ${C.bcyan}${C.bold}╚${HR}╝${C.reset}`);
-console.log(`  ${C.dim}📋 ${(session?.id || '?').slice(0, 16)}...  |  DeepSeek V4 Pro 2.5折${C.reset}\n`);
+console.log(`  ${C.dim}📋 ${(session?.id || '?').slice(0, 16)}...  |  DeepSeek V4 Pro${C.reset}\n`);
