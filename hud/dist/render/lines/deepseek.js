@@ -128,19 +128,9 @@ export function renderDeepSeekLine(ctx) {
                 (maxCache / 1_000_000) * DS_CACHE_PRICE +
                 (st.outputTokens / 1_000_000) * DS_OUTPUT_PRICE;
     }
-    const lastCum = readLastCumCost();
-    const delta = lastCum !== null && cumCost > lastCum ? cumCost - lastCum : null;
-    if (cumCost > 0)
-        writeCumCost(cumCost);
-    const alertThreshold = ctx.config?.display?.deepseekAlertThreshold ?? ALERT_DEFAULT;
     if (cumCost > 0) {
-        const alert = delta !== null && delta > alertThreshold;
-        const deltaStr = delta !== null && delta > 0.0001 ? `+${formatCost(delta)}` : '';
-        const cumStr = formatCost(cumCost);
-        const costStr = deltaStr
-            ? `${yellow(deltaStr)} ${dim(cumStr)}`
-            : yellow(cumStr);
-        parts.push(costStr);
+        writeCumCost(cumCost);
+        parts.push(yellow(formatCost(cumCost)));
     }
     function rainbow(n) {
         if (n <= 0.5)
