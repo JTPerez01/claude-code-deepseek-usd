@@ -195,6 +195,6 @@ console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}miss:${C.reset} ${currencySymb
 if (stats.maxCache > 0)
   console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}hit:${C.reset}   ${currencySymbol}${CACHE_PRICE}/M → ${C.green}${fmt.money(inCostCached)}${C.reset}                  ${C.bcyan}║${C.reset}`);
 console.log(`  ${C.bcyan}║${C.reset}    ${C.dim}output:${C.reset} ${currencySymbol}${OUTPUT_PRICE}  /M → ${C.magenta}${fmt.money(stats.outCost)}${C.reset}                  ${C.bcyan}║${C.reset}`);
-console.log(`  ${C.bcyan}║${C.reset}    ${C.bold}合计:${C.reset}           ${C.byellow}${fmt.money(stats.totalCost)}${C.reset}                  ${C.bcyan}║${C.reset}`);
+console.log(`  ${C.bcyan}║${C.reset}    ${C.bold}Total:${C.reset}           ${C.byellow}${fmt.money(stats.totalCost)}${C.reset}                  ${C.bcyan}║${C.reset}`);
 console.log(`  ${C.bcyan}${C.bold}╚${HR}╝${C.reset}`);
-console.log(`  ${C.dim}📋 ${(session?.id || '?').slice(0, 16)}...  |  DeepSeek V4 Pro 2.5折${C.reset}\n`);
+console.log(`  ${C.dim}📋 ${(session?.id || '?').slice(0, 16)}...  |  DeepSeek V4 Pro ${C.reset}\n`);

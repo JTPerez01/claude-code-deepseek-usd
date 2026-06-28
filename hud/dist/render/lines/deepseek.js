@@ -118,16 +118,7 @@ export function renderDeepSeekLine(ctx) {
     if (ctx.config?.display?.showDeepSeek !== true)
         return null;
     const parts = [];
-    const st = ctx.transcript.sessionTokens;
-    let cumCost = 0;
-    if (st) {
-        const maxCache = Math.min(st.cacheReadTokens, st.inputTokens);
-        const uncached = st.inputTokens - maxCache;
-        cumCost =
-            (uncached / 1_000_000) * DS_INPUT_PRICE +
-                (maxCache / 1_000_000) * DS_CACHE_PRICE +
-                (st.outputTokens / 1_000_000) * DS_OUTPUT_PRICE;
-    }
+    const cumCost = ctx.transcript.sessionCost ?? 0;
     if (cumCost > 0) {
         writeCumCost(cumCost);
         parts.push(yellow(formatCost(cumCost)));

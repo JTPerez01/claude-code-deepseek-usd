@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import * as readline from 'readline';
 import { createHash } from 'node:crypto';
 import { getHudPluginDir } from './claude-config-dir.js';
-const TRANSCRIPT_CACHE_VERSION = 5;
+const TRANSCRIPT_CACHE_VERSION = 6;
 let createReadStreamImpl = fs.createReadStream;
 function normalizeTokenCount(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -68,6 +68,7 @@ function serializeTranscriptData(data) {
         sessionName: data.sessionName,
         lastAssistantResponseAt: data.lastAssistantResponseAt?.toISOString(),
         sessionTokens: data.sessionTokens,
+        sessionCost: data.sessionCost,
         lastCompactBoundaryAt: data.lastCompactBoundaryAt?.toISOString(),
         lastCompactPostTokens: data.lastCompactPostTokens,
     };
@@ -89,6 +90,7 @@ function deserializeTranscriptData(data) {
         sessionName: data.sessionName,
         lastAssistantResponseAt: data.lastAssistantResponseAt ? new Date(data.lastAssistantResponseAt) : undefined,
         sessionTokens: normalizeSessionTokens(data.sessionTokens),
+        sessionCost: typeof data.sessionCost === 'number' ? data.sessionCost : undefined,
         lastCompactBoundaryAt: data.lastCompactBoundaryAt ? new Date(data.lastCompactBoundaryAt) : undefined,
         lastCompactPostTokens: typeof data.lastCompactPostTokens === 'number' ? data.lastCompactPostTokens : undefined,
     };
@@ -158,13 +160,17 @@ export async function parseTranscript(transcriptPath) {
     let customTitle;
     let lastCompactBoundaryAt;
     let lastCompactPostTokens;
+    const DS_INPUT_PRICE = 0.435;
+    const DS_CACHE_PRICE = 0.003625;
+    const DS_OUTPUT_PRICE = 0.87;
     const sessionTokens = {
         inputTokens: 0,
         outputTokens: 0,
         cacheCreationTokens: 0,
         cacheReadTokens: 0,
     };
-    let lastUsageKey;
+    const seenIds = new Set();
+    let sessionCost = 0;
     let parsedCleanly = false;
     try {
         const fileStream = createReadStreamImpl(canonicalTranscriptPath);
@@ -174,7 +180,6 @@ export async function parseTranscript(transcriptPath) {
         });
         for await (const line of rl) {
             if (!line.trim()) {
-                lastUsageKey = undefined;
                 continue;
             }
             try {
@@ -189,18 +194,22 @@ export async function parseTranscript(transcriptPath) {
                 // Claude Code can write the same API response to the transcript 2-3 times
                 // consecutively (dual-logging). Skip consecutive duplicates to avoid inflating counts.
                 if (entry.type === 'assistant' && entry.message?.usage) {
+                    const reqId = entry.message.id;
+                    if (reqId && seenIds.has(reqId)) continue;
+                    if (reqId) seenIds.add(reqId);
                     const usage = entry.message.usage;
-                    const key = `${usage.input_tokens}|${usage.output_tokens}|${usage.cache_creation_input_tokens}|${usage.cache_read_input_tokens}`;
-                    if (key !== lastUsageKey) {
-                        sessionTokens.inputTokens += normalizeTokenCount(usage.input_tokens);
-                        sessionTokens.outputTokens += normalizeTokenCount(usage.output_tokens);
-                        sessionTokens.cacheCreationTokens += normalizeTokenCount(usage.cache_creation_input_tokens);
-                        sessionTokens.cacheReadTokens += normalizeTokenCount(usage.cache_read_input_tokens);
-                    }
-                    lastUsageKey = key;
-                }
-                else {
-                    lastUsageKey = undefined;
+                    const inTok = normalizeTokenCount(usage.input_tokens);
+                    const outTok = normalizeTokenCount(usage.output_tokens);
+                    const cacheCreate = normalizeTokenCount(usage.cache_creation_input_tokens);
+                    const cacheRead = normalizeTokenCount(usage.cache_read_input_tokens);
+                    sessionTokens.inputTokens += inTok;
+                    sessionTokens.outputTokens += outTok;
+                    sessionTokens.cacheCreationTokens += cacheCreate;
+                    sessionTokens.cacheReadTokens += cacheRead;
+                    const uncached = Math.max(0, inTok - cacheRead);
+                    sessionCost += (uncached / 1_000_000) * DS_INPUT_PRICE
+                                 + (cacheRead / 1_000_000) * DS_CACHE_PRICE
+                                 + (outTok / 1_000_000) * DS_OUTPUT_PRICE;
                 }
                 // Track Claude Code's compact_boundary marker. Both manual (/compact)
                 // and auto compaction emit this system entry with compactMetadata; we
@@ -263,6 +272,7 @@ export async function parseTranscript(transcriptPath) {
     result.todos = latestTodos;
     result.sessionName = customTitle ?? latestSlug;
     result.sessionTokens = sessionTokens;
+    result.sessionCost = sessionCost;
     result.lastCompactBoundaryAt = lastCompactBoundaryAt;
     result.lastCompactPostTokens = lastCompactPostTokens;
     if (parsedCleanly) {
